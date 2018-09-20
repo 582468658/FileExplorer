@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+</head>
+<body>
+     <button id="btn">button</button>
+     <script type="text/javascript" src="../static/jquery-3.3.1.js"></script>
+     <script>
+         $(function() {
+             $('#btn').click(function () {
+                 $.ajax({
+                     url: '/list1',
+                     data: {'user': 123, 'host_list': [1, 2, 3, 4]},
+                     //data: $('#add_form').serialize(),
+                     type: "POST",
+                     dataType: 'JSON', // 内部
+                     traditional: true,
+                     success: function (data) {
+                         console.log(data);
+                     },
+                     error: function () {
+
+                     }
+
+                 })
+             });
+         })
+
+     </script>
+</body>
+</html>

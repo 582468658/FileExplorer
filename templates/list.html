@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>table模块快速使用</title>
+  <link rel="stylesheet" href="../static/layui/css/layui.css" media="all">
+  <script type="text/javascript" src="../static/layui/layui.js"></script>
+  <script type="text/javascript" src="../static/jquery-3.3.1.js"></script>
+  <script type="text/javascript" src="./common.js"></script>
+  <script type="text/javascript" src="./stub.js"></script>
+    <style type="text/css">
+    .breadcrumb {
+      padding: 8px 8px;
+      list-style: none;
+      border-radius: 4px;
+    }
+    .breadcrumb > li {
+      display: inline-block;
+    }
+    .breadcrumb > li + li:before {
+      padding: 0 5px;
+      color: #ccc;
+      content: "/\00a0";
+    }
+    .breadcrumb > .active {
+      color: #777;
+    }
+    .breadcrumb > li a {
+       color: #337ab7;
+    }
+    </style>
+</head>
+<body onload="Init()">
+<ol id="breadCrumb" class="breadcrumb"></ol>
+<button id="createFolder" class="layui-btn layui-btn-sm layui-btn-radius" lay-filter="demo1">新建文件夹</button>
+<button id="updateFile" class="layui-btn layui-btn-sm layui-btn-radius" lay-filter="demo1">上传文件</button>
+<table id="test" lay-filter="test"></table>
+<script>
+var files = new Array();
+var visibleFiles = new Array();
+var stackBreadCrumb = new Array();
+
+
+layui.use(['table','element'], function(){
+  var table = layui.table,
+  element = layui.element;
+  console.log("window.files");
+  console.log(window.files);
+  //第一个实例
+  window.visibleFiles = GetRoot();
+  ShowTable();
+    //监听行单击事件（双击事件为：rowDouble）
+  table.on('rowDouble(test)', function(obj){
+    var folder = obj.data;
+    //标注选中样式
+    obj.tr.addClass('layui-table-click').siblings().removeClass('layui-table-click');
+    //判断是否为文件夹
+    if(folder.type != 'folder')
+    {
+      return;
+    }
+
+    window.stackBreadCrumb.push(folder);
+    ShowBreadCrumb();
+
+    window.visibleFiles = GetleafFile(folder);
+    ShowTable();
+
+  });
+});
+
+function ShowTable()
+{
+     var table = layui.table;
+    table.render({
+    elem: '#test'
+    ,skin:'nob'
+    ,even:true
+    ,height: 312
+    ,data: visibleFiles
+    ,page: true //开启分页
+    ,cols: [[ //表头
+      {field: 'name', title: '文件名', width:350, sort: true, fixed: 'left'}
+      ,{field: 'type', title: '类别', width:200,sort: true}
+      ,{field: 'modifyTime', title: '修改时间', width:250, sort: true}
+      ,{fixed: 'right', width:200, align:'center', toolbar: '#barDemo'}
+    ]]
+  });
+}
+
+function Init()
+{
+    Stub();
+    InitFiles();
+    InitBreadCrumb();
+    ShowBreadCrumb();
+}
+
+function Stub()
+{
+    setCookie("userId", "9978", 1);
+}
+
+function InitFiles()
+{
+  $.ajax({
+      url:'./json1.json',
+      type:'POST', //GET _POST["name"] yang
+      async:false,    //或false,是否异步
+      data:{
+          name:'yang',
+          age:25
+      },
+      timeout:5000,    //超时时间
+      dataType:'json',    //返回的数据格式：json/xml/html/script/jsonp/text
+      success:function(jsondata,textStatus,jqXHR){ //data:{code:int, msg:string, data:array}
+          console.log(jsondata)
+          console.log(textStatus)
+          console.log(jqXHR)
+          if(jsondata.code==0)
+          {
+            window.files = jsondata.data;
+            SortFiles();
+          }
+          else
+          {
+            console.log("erro:"+jsondata.msg);
+          }
+
+      },
+      error:function(xhr,textStatus){
+          console.log('错误')
+          console.log(xhr)
+          console.log(textStatus)
+      }
+  });
+}
+
+function SortFiles()
+{
+  window.files.sort(Compare);
+}
+
+function SortVisiableFiles()
+{
+  window.visiableFiles.sort(Compare);
+}
+
+function Compare(file1, file2)
+{
+  if(file1.type == "folder" && file2.type != "folder")
+  {
+    return -1;
+  }
+  if(file1.type != "folder" && file2.type == "folder")
+  {
+    return 1;
+  }
+  if(file1.name>file2.name){
+    return 1;
+  }else{
+    if(file1.name<file2.name){
+      return -1;
+    }else{
+      return 0;
+    }
+  }
+}
+
+
+function InitBreadCrumb()
+{
+    var obj = new Object();
+    obj.name = getCookie("userId");
+    obj.level = -1;
+    window.stackBreadCrumb.push(obj);
+}
+
+function ShowBreadCrumb()
+{
+    var html = "";
+    for(var i=0;i<window.stackBreadCrumb.length;i++)
+    {
+        html += "<li><a onclick='GotoBreadCrumb("+window.stackBreadCrumb[i].level+")'>"+window.stackBreadCrumb[i].name+"</a></li>";
+    }
+    $("#breadCrumb").html(html);
+}
+
+function GotoBreadCrumb(level)
+{
+    //出栈
+    var length = window.stackBreadCrumb.length;
+    for(var i=0;i<length;i++)
+    {
+        if(window.stackBreadCrumb[length-1-i].level == level)
+        {
+            break;
+        }
+        window.stackBreadCrumb.pop();
+    }
+
+    //刷新面包屑
+    ShowBreadCrumb();
+
+    //获取当前显示的文件数组
+    var arrayfile;
+    length = window.stackBreadCrumb.length;
+    if(length==1)
+    {
+        window.visibleFiles = GetRoot();
+    }
+    else
+    {
+        window.visibleFiles = GetleafFile(window.stackBreadCrumb[length-1]);
+    }
+
+    //显示文件列表
+    ShowTable();
+}
+
+function GetRoot()
+{
+  var arrayRoot = new Array();
+  for(var i=0;i<window.files.length;i++)
+  {
+    if(window.files[i].parentId === "")
+    {
+      arrayRoot.push(window.files[i]);
+    }
+  }
+  return arrayRoot;
+}
+
+function GetleafFile(file)
+{
+  //确定是否为文件夹
+  if(file.type != 'folder')
+  {
+    return;
+  }
+  var arrayLeafFile = new Array();
+  for(var i=0;i<window.files.length;i++)
+  {
+    if(window.files[i].parentId === file.id)
+    {
+      arrayLeafFile.push(window.files[i]);
+      console.log(window.files[i]);
+    }
+  }
+  return arrayLeafFile;
+}
+
+$("#createFolder").click(function()
+{
+  var length = window.stackBreadCrumb.length;
+  var parentFile = window.stackBreadCrumb[length -1];
+  var newFile = BE_CreateFolder_fake(parentFile);
+  if(newFile)
+  {
+    window.visiableFiles.push(newFile);
+    SortVisiableFiles();
+    window.iles.push(newFile);
+    SortFiles();
+    showTable();
+  }
+
+});
+
+function BE_CreateFolder(parentFile)
+{
+  var newFile = new stdClass();
+  newFile.id = "";
+  newFile.parentId = parentFile.id;
+  newFile.level = parentFile.level + 1;
+  newFile.name = "untitle";
+  newFile.type = "folder";
+  newFile.modifyTime = "";
+  newFile.userId = getCookie("userId");
+  $.ajax({
+      url:'.../createFolder.py',
+      type:'POST', //GET _POST["name"] yang
+      async:false,    //或false,是否异步
+      data:{
+          newFile:newFile
+      },
+      timeout:5000,    //超时时间
+      dataType:'json',    //返回的数据格式：json/xml/html/script/jsonp/text
+      success:function(jsondata,textStatus,jqXHR){ //data:{code:int, msg:string, data:array}
+          console.log(jsondata)
+          console.log(textStatus)
+          console.log(jqXHR)
+          if(jsondata.code==0)
+          {
+            return jsondata.data[0];
+          }
+          else
+          {
+            layer.open({
+              title: '错误！'
+              ,content: jsondata.msg
+            });
+
+            return false;
+          }
+
+      },
+      error:function(xhr,textStatus){
+          console.log('错误');
+          console.log(xhr);
+          console.log(textStatus);
+          return false;
+      }
+  });
+  */
+}
+
+
+</script>
+<script type="text/html" id="barDemo">
+  <a class="layui-btn layui-btn-xs" lay-event="detail">下载</a>
+  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+</body>
+</html>
