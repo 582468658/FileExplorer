@@ -8,6 +8,26 @@
   <script type="text/javascript" src="../static/jquery-3.3.1.js"></script>
   <script type="text/javascript" src="./common.js"></script>
   <script type="text/javascript" src="./stub.js"></script>
+  
+  <!-- 图标扩展参考网站：
+  https://fly.layui.com/jie/19051/
+  https://blog.csdn.net/CharmingDang/article/details/82224598 -->
+  <!-- 网页版引用 -->
+  <!-- <script type="text/javascript" src="www/at.alicdn.com/t/font_861020_f0xnrbbieho.css"></script> -->
+  <!-- fontclass方式引用 -->
+  <!-- <link rel="stylesheet" href="../static/layui/css/modules/layui-icon-extend/iconfont.css"> -->
+  <!-- symbol方式引用 start-->
+  <script src="../static/layui/css/modules/layui-icon-extend/iconfont.js"></script>
+  <style type="text/css">
+    .icon {
+       width: 1em; height: 1em;
+       vertical-align: -0.15em;
+       fill: currentColor;
+       overflow: hidden;
+    }
+  </style>
+  <!-- symbol方式引用 end-->
+
     <style type="text/css">
     .breadcrumb {
       padding: 8px 8px;
@@ -17,24 +37,36 @@
     .breadcrumb > li {
       display: inline-block;
     }
-    .breadcrumb > li + li:before {
+    .breadcrumb > li.nofirst + li.nofirst:before {
       padding: 0 5px;
-      color: #ccc;
-      content: "/\00a0";
+      color: #353535;
+      content: "/";
+    }
+    .breadcrumb > li.first + li.nofirst:before {
+      padding: 0 5px;
+      color: #353535;
+      content: "\003a";
     }
     .breadcrumb > .active {
       color: #777;
     }
     .breadcrumb > li a {
        color: #337ab7;
+       cursor:pointer;
     }
     </style>
 </head>
-<body onload="Init()">
+<body onload="Init()" style="margin: 15px">
 <ol id="breadCrumb" class="breadcrumb"></ol>
 <button id="createFolder" class="layui-btn layui-btn-sm layui-btn-radius" lay-filter="demo1">新建文件夹</button>
 <button id="updateFile" class="layui-btn layui-btn-sm layui-btn-radius" lay-filter="demo1">上传文件</button>
-<table id="test" lay-filter="test"></table>
+<div class="layui-inline" style="float:right">
+  <div class="layui-input-inline">
+    <input type="text" id="keyWord" placeholder="" autocomplete="off" class="layui-input">
+  </div>
+  <button id="find" class="layui-btn layui-btn-sm" lay-filter="demo1">查找</button>
+</div>
+<table id="table" lay-filter="table"></table>
 <script>
 var files = new Array();
 var visibleFiles = new Array();
@@ -44,13 +76,8 @@ var stackBreadCrumb = new Array();
 layui.use(['table','element'], function(){
   var table = layui.table,
   element = layui.element;
-  console.log("window.files");
-  console.log(window.files);
-  //第一个实例
-  window.visibleFiles = GetRoot();
-  ShowTable();
     //监听行单击事件（双击事件为：rowDouble）
-  table.on('rowDouble(test)', function(obj){
+  table.on('rowDouble(table)', function(obj){
     var folder = obj.data;
     //标注选中样式
     obj.tr.addClass('layui-table-click').siblings().removeClass('layui-table-click');
@@ -64,36 +91,56 @@ layui.use(['table','element'], function(){
     ShowBreadCrumb();
 
     window.visibleFiles = GetleafFile(folder);
-    ShowTable();
-
+    ShowVisiableFiles()
   });
 });
 
-function ShowTable()
+function ShowVisiableFiles()
 {
      var table = layui.table;
     table.render({
-    elem: '#test'
-    ,skin:'nob'
+    elem: '#table'
     ,even:true
     ,height: 312
     ,data: visibleFiles
     ,page: true //开启分页
     ,cols: [[ //表头
-      {field: 'name', title: '文件名', width:350, sort: true, fixed: 'left'}
-      ,{field: 'type', title: '类别', width:200,sort: true}
-      ,{field: 'modifyTime', title: '修改时间', width:250, sort: true}
-      ,{fixed: 'right', width:200, align:'center', toolbar: '#barDemo'}
+      {
+        field: 'name', 
+        title: '名称', 
+        // width:350, 
+        sort: true, 
+        templet: function (data) 
+        {   
+          if(data.type == "folder")
+          {
+            //fontclass方式
+            //return "<i class='iconfont layui-icon-extend-wenjianjia' style='color:#daca3c;margin-right:5px'></i>" + data.name;
+            //symbol方式
+            return "<svg class='icon' aria-hidden='true'><use xlink:href='#layui-icon-extend-wenjianjia'></use></svg>" + data.name;
+          }
+          //fontclass方式
+          //return "<i class='iconfont layui-icon-extend-file' style='color:green;margin-right:5px'></i>" + data.name;
+          //symbol方式
+          return "<svg class='icon' aria-hidden='true'><use xlink:href='#layui-icon-extend-file'></use></svg>" + data.name;
+        }
+      }
+      ,{field: 'modifyTime', title:'修改日期', width:200, sort: true}
+      ,{field: 'type', title:'类型', width:120, sort: true}
+      ,{field: 'size', title:'大小', width:120, align:'right', sort: true}
+      ,{field: 'right', title:'操作',width:120, align:'center', toolbar: '#bar'}
     ]]
   });
 }
 
 function Init()
 {
-    Stub();
-    InitFiles();
-    InitBreadCrumb();
-    ShowBreadCrumb();
+  Stub();
+	InitFiles();
+	InitVisiableFiles();
+	ShowVisiableFiles();
+  InitBreadCrumb();
+  ShowBreadCrumb();
 }
 
 function Stub()
@@ -103,42 +150,51 @@ function Stub()
 
 function InitFiles()
 {
-  $.ajax({
-      url:'./json1.json',
-      type:'POST', //GET _POST["name"] yang
-      async:false,    //或false,是否异步
-      data:{
-          name:'yang',
-          age:25
-      },
-      timeout:5000,    //超时时间
-      dataType:'json',    //返回的数据格式：json/xml/html/script/jsonp/text
-      success:function(jsondata,textStatus,jqXHR){ //data:{code:int, msg:string, data:array}
-          console.log(jsondata)
-          console.log(textStatus)
-          console.log(jqXHR)
-          if(jsondata.code==0)
-          {
-            window.files = jsondata.data;
-            SortFiles();
-          }
-          else
-          {
-            console.log("erro:"+jsondata.msg);
-          }
+	BE_InitFiles_fake();
+	SortFiles();
+}
 
-      },
-      error:function(xhr,textStatus){
-          console.log('错误')
-          console.log(xhr)
-          console.log(textStatus)
-      }
-  });
+function InitVisiableFiles()
+{
+	window.visibleFiles = GetRoot();
+}
+
+function BE_InitFiles()
+{
+  	$.ajax({
+		url:'./initFiles.py',
+		type:'POST', //GET _POST["name"] yang
+		async:false,    //或false,是否异步
+		data:{
+			name:'yang',
+			age:25
+		},
+		timeout:5000,    //超时时间
+		dataType:'json',    //返回的数据格式：json/xml/html/script/jsonp/text
+		success:function(jsondata,textStatus,jqXHR){ //data:{code:int, msg:string, data:array}
+			console.log(jsondata)
+			console.log(textStatus)
+			console.log(jqXHR)
+			if(jsondata.code==0)
+			{
+				window.files = jsondata.data;
+			}
+			else
+			{
+				console.log("erro:"+jsondata.msg);
+			}
+		},
+		error:function(xhr,textStatus){
+			console.log('错误')
+			console.log(xhr)
+			console.log(textStatus)
+		}
+	});
 }
 
 function SortFiles()
 {
-  window.files.sort(Compare);
+	window.files.sort(Compare);
 }
 
 function SortVisiableFiles()
@@ -170,10 +226,32 @@ function Compare(file1, file2)
 
 function InitBreadCrumb()
 {
-    var obj = new Object();
-    obj.name = getCookie("userId");
-    obj.level = -1;
-    window.stackBreadCrumb.push(obj);
+  window.stackBreadCrumb = new Array();
+  var obj = new Object();
+  obj.name = getCookie_faker("userId")+"用户空间";
+  obj.level = -1;
+  window.stackBreadCrumb.push(obj);
+}
+
+function SetFindBreadCrumb()
+{
+  InitBreadCrumb();
+  var obj = new Object();
+  obj.name = "find面板";
+  window.stackBreadCrumb.push(obj);
+}
+
+function SetBreadCrumb(file)
+{
+  InitBreadCrumb();
+  var arrayTemp = new Array();
+  while(file.parentId != "" && file.parendId != null)
+  {
+    var file = GetFile(file.parendId);
+    arrayTemp.push(file);
+  }
+  arrayTemp.reverse();
+  window.stackBreadCrumb = window.stackBreadCrumb.concat(arrayTemp);
 }
 
 function ShowBreadCrumb()
@@ -181,41 +259,46 @@ function ShowBreadCrumb()
     var html = "";
     for(var i=0;i<window.stackBreadCrumb.length;i++)
     {
-        html += "<li><a onclick='GotoBreadCrumb("+window.stackBreadCrumb[i].level+")'>"+window.stackBreadCrumb[i].name+"</a></li>";
+      if(i == 0)
+      {
+        html += "<li class='first'><a onclick='GotoBreadCrumb("+window.stackBreadCrumb[i].level+")' style=':hover{text-decoration:underline;}'>"+window.stackBreadCrumb[i].name+"</a></li>";
+      }else{
+        html += "<li class='nofirst'><a onclick='GotoBreadCrumb("+window.stackBreadCrumb[i].level+")' style=':hover{text-decoration:underline;}'>"+window.stackBreadCrumb[i].name+"</a></li>";
+      }
     }
     $("#breadCrumb").html(html);
 }
 
 function GotoBreadCrumb(level)
 {
-    //出栈
-    var length = window.stackBreadCrumb.length;
-    for(var i=0;i<length;i++)
-    {
-        if(window.stackBreadCrumb[length-1-i].level == level)
-        {
-            break;
-        }
-        window.stackBreadCrumb.pop();
-    }
+  //出栈
+  var length = window.stackBreadCrumb.length;
+  for(var i=0;i<length;i++)
+  {
+      if(window.stackBreadCrumb[length-1-i].level == level)
+      {
+          break;
+      }
+      window.stackBreadCrumb.pop();
+  }
 
-    //刷新面包屑
-    ShowBreadCrumb();
+  //刷新面包屑
+  ShowBreadCrumb();
 
-    //获取当前显示的文件数组
-    var arrayfile;
-    length = window.stackBreadCrumb.length;
-    if(length==1)
-    {
-        window.visibleFiles = GetRoot();
-    }
-    else
-    {
-        window.visibleFiles = GetleafFile(window.stackBreadCrumb[length-1]);
-    }
+  //获取当前显示的文件数组
+  var arrayfile;
+  length = window.stackBreadCrumb.length;
+  if(length==1)
+  {
+      window.visibleFiles = GetRoot();
+  }
+  else
+  {
+      window.visibleFiles = GetleafFile(window.stackBreadCrumb[length-1]);
+  }
 
-    //显示文件列表
-    ShowTable();
+  //显示文件列表
+ 	ShowVisiableFiles()
 }
 
 function GetRoot()
@@ -250,6 +333,18 @@ function GetleafFile(file)
   return arrayLeafFile;
 }
 
+function GetFile(id)
+{
+  for(var i=0;i<window.files.length;i++)
+  {
+    if(window.files[i].id === id)
+    {
+      return window.files[i];
+    }
+  }
+  return;
+}
+
 $("#createFolder").click(function()
 {
   var length = window.stackBreadCrumb.length;
@@ -261,10 +356,78 @@ $("#createFolder").click(function()
     SortVisiableFiles();
     window.iles.push(newFile);
     SortFiles();
-    showTable();
+ 	ShowVisiableFiles()
   }
-
 });
+
+$("#find").click(function()
+{
+  var key = document.getElementById("keyWord").value;
+  var arrayFindFile = findFile(key);
+  ShowFindFile(arrayFindFile);
+  SetFindBreadCrumb();
+  ShowBreadCrumb();
+});
+
+function findFile(key)
+{
+  var arrayFindFile = new Array();
+  for(var i=0;i<window.files.length;i++)
+  {
+    if(isHitKey(key, window.files[i]))
+    {
+      arrayFindFile.push(window.files[i]);
+    }
+  }
+  return arrayFindFile;
+}
+
+function isHitKey(key, file)
+{
+  if(file.name.indexOf(key) != -1)
+  {
+    return true;
+  }
+  return false;
+}
+
+function ShowFindFile(arrayFindFile)
+{
+  var table = layui.table;
+  table.render({
+    elem: '#table'
+    ,even:true
+    ,height: 312
+    ,data: arrayFindFile
+    ,page: true //开启分页
+    ,cols: [[ //表头
+      {
+        field: 'name', 
+        title: '名称', 
+        // width:350, 
+        sort: true, 
+        templet: function (data) 
+        {   
+          if(data.type == "folder")
+          {
+            //fontclass方式
+            //return "<i class='iconfont layui-icon-extend-wenjianjia' style='color:#daca3c;margin-right:5px'></i>" + data.name;
+            //symbol方式
+            return "<svg class='icon' aria-hidden='true'><use xlink:href='#layui-icon-extend-wenjianjia'></use></svg>" + data.name;
+          }
+          //fontclass方式
+          //return "<i class='iconfont layui-icon-extend-file' style='color:green;margin-right:5px'></i>" + data.name;
+          //symbol方式
+          return "<svg class='icon' aria-hidden='true'><use xlink:href='#layui-icon-extend-file'></use></svg>" + data.name;
+        }
+      }
+      ,{field: 'modifyTime', title:'修改日期', width:200, sort: true}
+      ,{field: 'type', title:'类型', width:120, sort: true}
+      ,{field: 'size', title:'大小', width:120, align:'right', sort: true}
+      ,{field: 'right', title:'操作',width:220, align:'center', toolbar: '#findFileBar'}
+    ]]
+  });
+}
 
 function BE_CreateFolder(parentFile)
 {
@@ -311,12 +474,16 @@ function BE_CreateFolder(parentFile)
           return false;
       }
   });
-  */
 }
 
 
 </script>
-<script type="text/html" id="barDemo">
+<script type="text/html" id="bar">
+  <a class="layui-btn layui-btn-xs" lay-event="detail">下载</a>
+  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+<script type="text/html" id="findFileBar">
+  <a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="detail">打开文件位置</a>
   <a class="layui-btn layui-btn-xs" lay-event="detail">下载</a>
   <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
 </script>
